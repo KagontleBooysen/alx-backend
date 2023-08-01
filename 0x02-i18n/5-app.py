@@ -1,9 +1,26 @@
 #!/usr/bin/env python3
-"""
-a python module to initiate a flask app using Babel
-"""
-from flask import Flask, render_template, request, g
+'''
+    Use Babel to get user locale.
+'''
+
 from flask_babel import Babel
+from flask import Flask, render_template, request, g
+from typing import Union
+
+app = Flask(__name__, template_folder='templates')
+babel = Babel(app)
+
+
+class Config(object):
+    '''
+        Babel configuration.
+    '''
+    LANGUAGES = ['en', 'fr']
+    BABEL_DEFAULT_LOCALE = 'en'
+    BABEL_DEFAULT_TIMEZONE = 'UTC'
+
+
+app.config.from_object(Config)
 
 users = {
     1: {"name": "Balou", "locale": "fr", "timezone": "Europe/Paris"},
@@ -13,61 +30,44 @@ users = {
 }
 
 
-class Config(object):
-    """
-    a class to configure babel
-    """
-    LANGUAGES = ["en", "fr"]
-    BABEL_DEFAULT_LOCALE = "en"
-    BABEL_DEFAULT_TIMEZONE = "UTC"
-
-
-app = Flask(__name__)
-app.config.from_object(Config)
-babel = Babel(app)
-
-
-@babel.localeselector
-def get_locale():
-    """
-    get_locale - function to get the local selector
-    """
-    lcl = request.args.get('locale', None)
-    if lcl and lcl in app.config['LANGUAGES']:
-        return lcl
-    return request.accept_languages.best_match(app.config['LANGUAGES'])
-
-
-@app.route('/', strict_slashes=False)
-def Welcome():
-    """
-    Welcome - a route to a 5-index html
-    """
-    return render_template('5-index.html')
-
-
-def get_user():
-    """
-    get_user - function that returns a given user
-    Arguments:
-        Nothing
-    Returns:
-        the user if it is found None other wise
-    """
-    user_id = request.args.get('login_as', None)
-    if user_id is None:
-        return None
-    return users.get(int(user_id))
+def get_user() -> Union[dict, None]:
+    '''
+        Get user from session as per variable.
+    '''
+    try:
+        login_as = request.args.get('login_as', None)
+        user = users[int(login_as)]
+    except Exception:
+        user = None
 
 
 @app.before_request
 def before_request():
-    """
-    a function to force this method to be executed before other methods
-    """
-    usr = get_user()
-    g.user = usr
+    '''
+        Operations before request.
+    '''
+    user = get_user()
+    g.user = user
 
 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port="5000")
+@app.route('/', methods=['GET'], strict_slashes=False)
+def helloWorld() -> str:
+    '''
+        Render template for Babel usage.
+    '''
+    return render_template('5-index.html')
+
+
+@babel.localeselector
+def get_locale() -> str:
+    '''
+        Get user locale to serve matching translation.
+    '''
+    locale = request.args.get('locale')
+    if locale in app.config['LANGUAGES']:
+        return locale
+    return request.accept_languages.best_match(app.config['LANGUAGES'])
+
+
+if __name__ == '__main__':
+    app.run()
